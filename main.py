@@ -365,26 +365,28 @@ async def generate_boilerplates(req: BoilerplateRequest):
     logger.info(f"Generating boilerplates for: {req.title}")
     
     system_prompt = (
-        "You are an expert DSA curriculum designer. Your task is to provide high-quality, "
-        "LeetCode-style boilerplate code for a given problem in 5 languages: javascript, python, java, cpp, c."
+        "You are a world-class DSA curriculum designer. Your goal is to provide high-quality, "
+        "LeetCode-style boilerplate code. The user expects professional signatures, appropriate return types, "
+        "and perfect formatting for top-tier platforms."
     )
     
     user_prompt = f"""
     Problem Title: {req.title}
     Problem Description: {req.description}
     
-    Generate high-quality starter code (boilerplate) for the following languages. 
-    Follow these conventions strictly:
-    - **javascript**: Use `/** ... */ var solution = function(...) {{ }};`. Include JSDoc comments for params.
-    - **python**: Use `class Solution:\n    def solve(self, ...):`. Include type hints (e.g., `nums: list[int]`).
-    - **java**: Use `import java.util.*;\n\nclass Solution {{\n    public ... solve(...) {{\n\n    }}\n}}`. Include necessary imports.
-    - **cpp**: Use `#include <iostream>\n#include <vector>\nusing namespace std;\n\nclass Solution {{\npublic:\n    ... solve(...) {{\n\n    }}\n}};`.
-    - **c**: Use `#include <stdio.h>\n#include <stdlib.h>\n\n... solve(...) {{\n\n}}`.
+    Generate problem-specific starter code (boilerplate) for the following languages.
+    CRITICAL REQUIREMENTS:
+    1. **Function Name**: Derived from the title (e.g., 'Two Sum' -> 'twoSum' or 'two_sum').
+    2. **Types**: Infer realistic return types and parameters from the description.
+    3. **Structure**: 
+        - **javascript**: `var funcName = function(...) {{ }};`. Include professional JSDoc.
+        - **python**: `class Solution:\n    def funcName(self, ...):`. Use modern type hints.
+        - **java**: `import java.util.*;\n\nclass Solution {{\n    public ... funcName(...) {{\n\n    }}\n}}`.
+        - **cpp**: `#include <iostream>\n#include <vector>\n#include <string>\nusing namespace std;\n\nclass Solution {{\npublic:\n    ... funcName(...) {{\n\n    }}\n}};`.
+        - **c**: `#include <stdio.h>\n#include <stdlib.h>\n#include <stdbool.h>\n\n... funcName(...) {{\n\n}}`.
     
-    The code should look premium, professional, and exactly like a top-tier coding platform.
-    Return ONLY a JSON object with keys: 'javascript', 'python', 'java', 'cpp', 'c'.
-    Each value should be the string of the boilerplate code.
-    Return ONLY raw JSON, no markdown blocks.
+    Return ONLY a JSON object with keys: 'javascript', 'python', 'java', 'cpp', 'c'. 
+    Return ONLY raw JSON.
     """
 
     try:
@@ -402,11 +404,11 @@ async def generate_boilerplates(req: BoilerplateRequest):
         logger.error(f"Boilerplate generation failed: {str(e)}")
         # Fallback empty boilerplates
         return {
-            "javascript": "// Error generating boilerplate\nvar solution = function(input) {\n\n};",
-            "python": "class Solution:\n    def solve(self, input):\n        pass",
-            "java": "class Solution {\n    public Object solve(Object input) {\n        return null;\n    }\n}",
-            "cpp": "class Solution {\npublic:\n    void solve() {\n\n    }\n};",
-            "c": "void solve() {\n\n}"
+            "javascript": "/**\n * @param {any} input\n * @return {any}\n */\nvar solution = function(input) {\n    \n};",
+            "python": "class Solution:\n    def solve(self, input: any) -> any:\n        pass",
+            "java": "import java.util.*;\n\nclass Solution {\n    public Object solve(Object input) {\n        return null;\n    }\n}",
+            "cpp": "#include <iostream>\n#include <vector>\n#include <string>\n\nusing namespace std;\n\nclass Solution {\npublic:\n    void solve(auto input) {\n        \n    }\n};",
+            "c": "#include <stdio.h>\n#include <stdlib.h>\n#include <stdbool.h>\n\nvoid solve(void* input) {\n    \n}"
         }
 
 @app.post("/generate_test_cases")
