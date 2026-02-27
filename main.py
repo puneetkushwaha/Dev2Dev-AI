@@ -23,7 +23,6 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler("ai_service.log"),
         logging.StreamHandler()
     ]
 )
@@ -137,6 +136,10 @@ class ExamCodingEvalRequest(BaseModel):
     domain: str
     answers: list[CodingQuestionAnswer]
     language: str = "javascript"
+
+@app.get("/health")
+async def health_check():
+    return {"status": "ok"}
 
 @app.get("/")
 async def read_root():
@@ -365,8 +368,7 @@ async def evaluate_interview(req: EvalRequest):
     ]
 
     try:
-        completion = client.chat.completions.create(
-            model=AI_MODEL,
+        completion = await generate_groq_response_with_fallback(
             messages=messages,
             stream=False
         )
@@ -378,6 +380,7 @@ async def evaluate_interview(req: EvalRequest):
             return json.loads(match.group(0))
         return json.loads(raw_text)
     except Exception as e:
+        logger.error(f"Interview evaluation failed: {str(e)}")
         return {"error": str(e), "score": 0, "feedback": "Evaluation failed."}
 
 @app.post("/generate_questions")
