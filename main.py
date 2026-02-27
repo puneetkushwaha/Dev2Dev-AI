@@ -137,6 +137,10 @@ class ExamCodingEvalRequest(BaseModel):
     answers: list[CodingQuestionAnswer]
     language: str = "javascript"
 
+class BoilerplateRequest(BaseModel):
+    title: str
+    description: str
+
 @app.get("/health")
 async def health_check():
     return {"status": "ok"}
@@ -347,6 +351,57 @@ async def evaluate_exam_coding(req: ExamCodingEvalRequest):
             })
             
     return {"results": results}
+
+@app.post("/generate_boilerplates")
+async def generate_boilerplates(req: BoilerplateRequest):
+    logger.info(f"Generating boilerplates for: {req.title}")
+    
+    system_prompt = (
+        "You are an expert DSA curriculum designer. Your task is to provide high-quality, "
+        "LeetCode-style boilerplate code for a given problem in 5 languages: javascript, python, java, cpp, c."
+    )
+    
+    user_prompt = f"""
+    Problem Title: {req.title}
+    Problem Description: {req.description}
+    
+    Generate the starter code (boilerplate) for the following languages. 
+    Follow these conventions strictly:
+    - **javascript**: Use `var solution = function(...) {{ }};`.
+    - **python**: Use `class Solution:\n    def solve(self, ...):`.
+    - **java**: Use `class Solution {{\n    public ... solve(...) {{\n    }}\n}}`.
+    - **cpp**: Use class-based or function-based structure.
+    - **c**: Use standard function structure.
+    
+    Return ONLY a JSON object with keys: 'javascript', 'python', 'java', 'cpp', 'c'.
+    Each value should be the string of the boilerplate code.
+    Include common type hints and comments for params/return.
+    If the problem involves linked lists or trees, assume standard definitions (ListNode/TreeNode) are available and add a comment about it.
+    
+    Return ONLY raw JSON, no markdown blocks.
+    """
+
+    try:
+        completion = await generate_groq_response_with_fallback(
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            stream=False
+        )
+        raw_text = completion.choices[0].message.content.strip()
+        match = re.search(r"\{.*\}", raw_text, re.DOTALL)
+        return json.loads(match.group(0)) if match else json.loads(raw_text)
+    except Exception as e:
+        logger.error(f"Boilerplate generation failed: {str(e)}")
+        # Fallback empty boilerplates
+        return {
+            "javascript": "// Error generating boilerplate\nvar solution = function(input) {\n\n};",
+            "python": "class Solution:\n    def solve(self, input):\n        pass",
+            "java": "class Solution {\n    public Object solve(Object input) {\n        return null;\n    }\n}",
+            "cpp": "class Solution {\npublic:\n    void solve() {\n\n    }\n};",
+            "c": "void solve() {\n\n}"
+        }
 
 @app.post("/mock_interview_eval")
 async def evaluate_interview(req: EvalRequest):
