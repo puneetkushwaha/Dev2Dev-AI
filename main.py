@@ -141,6 +141,14 @@ class BoilerplateRequest(BaseModel):
     title: str
     description: str
 
+class TestCaseRequest(BaseModel):
+    title: str
+    description: str
+
+class TestCaseRequest(BaseModel):
+    title: str
+    description: str
+
 @app.get("/health")
 async def health_check():
     return {"status": "ok"}
@@ -365,19 +373,17 @@ async def generate_boilerplates(req: BoilerplateRequest):
     Problem Title: {req.title}
     Problem Description: {req.description}
     
-    Generate the starter code (boilerplate) for the following languages. 
+    Generate high-quality starter code (boilerplate) for the following languages. 
     Follow these conventions strictly:
-    - **javascript**: Use `var solution = function(...) {{ }};`.
-    - **python**: Use `class Solution:\n    def solve(self, ...):`.
-    - **java**: Use `class Solution {{\n    public ... solve(...) {{\n    }}\n}}`.
-    - **cpp**: Use class-based or function-based structure.
-    - **c**: Use standard function structure.
+    - **javascript**: Use `/** ... */ var solution = function(...) {{ }};`. Include JSDoc comments for params.
+    - **python**: Use `class Solution:\n    def solve(self, ...):`. Include type hints (e.g., `nums: list[int]`).
+    - **java**: Use `import java.util.*;\n\nclass Solution {{\n    public ... solve(...) {{\n\n    }}\n}}`. Include necessary imports.
+    - **cpp**: Use `#include <iostream>\n#include <vector>\nusing namespace std;\n\nclass Solution {{\npublic:\n    ... solve(...) {{\n\n    }}\n}};`.
+    - **c**: Use `#include <stdio.h>\n#include <stdlib.h>\n\n... solve(...) {{\n\n}}`.
     
+    The code should look premium, professional, and exactly like a top-tier coding platform.
     Return ONLY a JSON object with keys: 'javascript', 'python', 'java', 'cpp', 'c'.
     Each value should be the string of the boilerplate code.
-    Include common type hints and comments for params/return.
-    If the problem involves linked lists or trees, assume standard definitions (ListNode/TreeNode) are available and add a comment about it.
-    
     Return ONLY raw JSON, no markdown blocks.
     """
 
@@ -402,6 +408,44 @@ async def generate_boilerplates(req: BoilerplateRequest):
             "cpp": "class Solution {\npublic:\n    void solve() {\n\n    }\n};",
             "c": "void solve() {\n\n}"
         }
+
+@app.post("/generate_test_cases")
+async def generate_test_cases(req: TestCaseRequest):
+    logger.info(f"Generating test cases for: {req.title}")
+    
+    prompt = f"""
+    Generate 3-4 sample test cases for the following DSA problem:
+    Title: {req.title}
+    Description: {req.description}
+    
+    Return ONLY a JSON array of objects with 'input', 'expected', and 'description' keys.
+    Values should be strings. 
+    Ensure 'input' and 'expected' are formatted clearly for the user to understand.
+    Example for Two Sum:
+    [
+      {{"input": "nums = [2,7,11,15], target = 9", "expected": "[0,1]", "description": "Basic case"}},
+      {{"input": "nums = [3,2,4], target = 6", "expected": "[1,2]", "description": "Middle elements"}}
+    ]
+    
+    Return ONLY the raw JSON array.
+    """
+    
+    try:
+        completion = await generate_groq_response_with_fallback(
+            messages=[
+                {"role": "system", "content": "You are an expert DSA tester."},
+                {"role": "user", "content": prompt}
+            ],
+            stream=False
+        )
+        raw_text = completion.choices[0].message.content.strip()
+        match = re.search(r"\[.*\]", raw_text, re.DOTALL)
+        return json.loads(match.group(0)) if match else json.loads(raw_text)
+    except Exception as e:
+        logger.error(f"Test case generation failed: {str(e)}")
+        return [
+            {"input": "sample input", "expected": "sample output", "description": "Default case"}
+        ]
 
 @app.post("/mock_interview_eval")
 async def evaluate_interview(req: EvalRequest):
