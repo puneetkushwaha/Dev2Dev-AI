@@ -634,6 +634,62 @@ def get_problems(domain: str):
         })
     return {"problems": problems}
 
+class StructureContentRequest(BaseModel):
+    raw_text: str
+    target_type: str = "contest" # "contest" or "exam"
+
+@app.post("/structure_content")
+async def structure_content(req: StructureContentRequest):
+    logger.info(f"Structuring content for: {req.target_type}")
+    
+    system_prompt = (
+        "You are an expert curriculum and contest designer. Your task is to take raw, unstructured text "
+        "(which could be a PDF extract, a text file, or raw notes) and structure it into a high-quality "
+        "JSON format for a contest or exam platform."
+    )
+    
+    user_prompt = f"""
+    Raw Content to Process:
+    {req.raw_text}
+    
+    Target Type: {req.target_type}
+    
+    Please parse the above text and return a valid JSON object structure.
+    
+    If 'target_type' is 'contest', the JSON must include:
+    - 'title': String
+    - 'description': String
+    - 'durationMinutes': Integer
+    - 'questions': Array of objects, each with:
+        - 'questionText': String
+        - 'type': 'mcq' or 'coding'
+        - 'options': Array of 4 strings (only if mcq)
+        - 'correctAnswer': String (index for mcq, or sample solution snippet for coding)
+        - 'difficulty': 'Easy', 'Medium', or 'Hard'
+        - 'explanation': String
+        - 'starterCodes': Object with keys 'javascript', 'python', 'java' (provide realistic boilerplate)
+        - 'testCases': Array of objects with 'input', 'expected', 'description'
+    
+    If 'target_type' is 'exam', follow a similar structure but omit contest-only fields if any.
+    
+    Return ONLY raw JSON, no markdown. If the raw text is incomplete, use your expertise to fill in realistic gaps (e.g., generate sample test cases if missing).
+    """
+
+    try:
+        completion = await generate_groq_response_with_fallback(
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            stream=False
+        )
+        raw_text = completion.choices[0].message.content.strip()
+        match = re.search(r"\{.*\}", raw_text, re.DOTALL)
+        return json.loads(match.group(0)) if match else json.loads(raw_text)
+    except Exception as e:
+        logger.error(f"Structure content failed: {str(e)}")
+        return {"error": str(e), "message": "Failed to structure content"}
+
 if __name__ == "__main__":
     import uvicorn
     import os
