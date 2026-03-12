@@ -457,22 +457,55 @@ async def generate_test_cases(req: TestCaseRequest):
 
 @app.post("/mock_interview_eval")
 async def evaluate_interview(req: EvalRequest):
+    candidate_word_count = 0
     transcript_str = ""
     for entry in req.transcript:
-        role = "Candidate" if entry['role'] == 'user' else "Interviewer"
-        transcript_str += f"{role}: {entry['text']}\n"
+        role_label = "Candidate" if entry['role'] == 'user' else "Interviewer"
+        text = entry['text']
+        transcript_str += f"{role_label}: {text}\n"
+        if entry['role'] == 'user':
+            candidate_word_count += len(text.split())
+    
+    # Realism Check: If candidate barely spoke, immediate fail
+    if candidate_word_count < 20:
+        return {
+            "score": 0,
+            "technical": 0,
+            "communication": 0,
+            "hireProbability": "Low",
+            "feedback": (
+                "The interview was terminated prematurely. The candidate provided almost no substantial "
+                "interaction or technical explanation. This is an automatic rejection."
+            ),
+            "improvements": [
+                "You must engage in the conversation to be evaluated.",
+                "Provide detailed technical explanations instead of one-word answers.",
+                "Ensure your microphone is working and stay for the full duration."
+            ],
+            "studyPlan": [
+                "Prepare a solid introduction of your projects.",
+                "Practice explaining complex concepts out loud.",
+                "Focus on the STAR method (Situation, Task, Action, Result) for all answers."
+            ]
+        }
 
     messages = [
         {"role": "system", "content": (
-            "You are a Senior Technical Lead and Hiring Manager from a FAANG company. "
+            "You are a notoriously tough Senior Technical Lead and Hiring Manager from a FAANG company. "
             "You are evaluating a candidate's performance in a technical interview transcript. "
-            "Be extremely objective and realistic. Most candidates should score between 50-80. "
+            "A standard candidate who just 'gives the right definition' but lacks implementation details should NOT pass. "
+            "Be extremely objective and realistic. Most candidates should score between 30-70. "
             "Evaluate based on:\n"
-            "1. Technical Depth: Did they explain concepts in detail or just stay surface-level?\n"
-            "2. Problem Solving: How did they handle follow-up questions?\n"
-            "3. Communication: Were they clear, professional, and confident?\n"
-            "4. Cultural Fit: Do they sound like a proactive engineer?\n"
-            "Scoring: 0-50 (Reject), 51-70 (Maybe/Wait), 71-85 (Strong Hire), 86-100 (Exceptional)."
+            "1. Technical Depth: Did they explain concepts in detail or just stay surface-level? Look for mentions of architecture, performance, or edge cases.\n"
+            "2. Problem Solving: How did they handle follow-up questions? Did they get flustered?\n"
+            "3. Communication: Were they clear, professional, and confident? Did they repeat themselves?\n"
+            "4. Cultural Fit: Do they sound like a proactive engineer who takes ownership?\n"
+            "Scoring Rubric:\n"
+            "- 0-40: Definite Reject (Shallow knowledge, poor communication)\n"
+            "- 41-60: Weak Maybe (Knows basics but lacks depth)\n"
+            "- 61-75: Strong Hire (Solid depth and communication)\n"
+            "- 76-100: Top 1% Candidate (Exceptional depth, mentors others).\n"
+            "If the candidate gives short, robotic, or generic answers, penalize them heavily."
         )},
         {"role": "user", "content": (
             f"Role: {req.role or req.domain}\n"
