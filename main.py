@@ -195,24 +195,30 @@ async def analyze_resume(request: AnalyzeResumeRequest):
     logger.info(f"Analyzing resume for role: {request.target_role}")
     
     system_prompt = (
-        "You are a highly critical and realistic ATS (Applicant Tracking System) and Senior Tech Recruiter. "
-        "Your task is to provide an honest, data-driven analysis of a resume for a specific target role. "
-        "A standard okay resume should score 60-70. A poor match should score below 50. A 90+ score is for perfect candidates. "
-        "Be HARSH but ACTIONABLE. Mention specific missing technologies or weak descriptions."
+        "You are an elite, highly skeptical ATS (Applicant Tracking System) and Senior Technical Recruiter at a Tier-1 Tech company. "
+        "Your goal is to filter out candidates who don't perfectly match the target role. "
+        "A realistic applicant has flaws. Be extremely critical about keyword matching, project depth, and quantified impact (e.g., %, $, time). "
+        "Scoring Rubric:\n"
+        "- 0-40: Immediate Rejection (Major skills missing)\n"
+        "- 41-60: Weak Match (Missing core technologies or poor descriptions)\n"
+        "- 61-75: Decent Candidate (Matches core but lacks 'wow' factor or niche skills)\n"
+        "- 76-85: Strong Candidate (Good depth, but small gaps exist)\n"
+        "- 86-95: Elite Candidate (Rare find, perfect match)\n"
+        "- 96-100: Reserved for God-tier profiles (Impossible but possible).\n"
+        "Provide HARSH but ACTIONABLE advice."
     )
     
     user_prompt = f"""
-    Analyze the following resume for the target role of '{request.target_role}'.
-    
+    TARGET ROLE: {request.target_role}
     RESUME TEXT:
     {request.resume_text}
     
-    Provide a comprehensive analysis. Return ONLY a valid JSON object with:
+    Conduct a deep analysis. Return ONLY a valid JSON object with:
     1. 'score': Integer (0-100).
-    2. 'improvements': List of 3-5 specific points (referencing content in the resume).
-    3. 'generatedQuestions': List of 3 tough interview questions tailored to the resume.
+    2. 'improvements': List of 3-5 specific, harsh, and technical improvements.
+    3. 'generatedQuestions': List of 3 extremely tough technical interview questions specific to their projects/experience.
     
-    Return ONLY raw JSON, no markdown.
+    Return ONLY raw JSON. No markdown.
     """
 
     # Try Groq with Fallback
@@ -457,14 +463,25 @@ async def evaluate_interview(req: EvalRequest):
         transcript_str += f"{role}: {entry['text']}\n"
 
     messages = [
-        {"role": "system", "content": "You are an expert Interview Evaluator."},
+        {"role": "system", "content": (
+            "You are a Senior Technical Lead and Hiring Manager from a FAANG company. "
+            "You are evaluating a candidate's performance in a technical interview transcript. "
+            "Be extremely objective and realistic. Most candidates should score between 50-80. "
+            "Evaluate based on:\n"
+            "1. Technical Depth: Did they explain concepts in detail or just stay surface-level?\n"
+            "2. Problem Solving: How did they handle follow-up questions?\n"
+            "3. Communication: Were they clear, professional, and confident?\n"
+            "4. Cultural Fit: Do they sound like a proactive engineer?\n"
+            "Scoring: 0-50 (Reject), 51-70 (Maybe/Wait), 71-85 (Strong Hire), 86-100 (Exceptional)."
+        )},
         {"role": "user", "content": (
-            f"Evaluate this technical interview for the role of {req.role or req.domain}.\n"
+            f"Role: {req.role or req.domain}\n"
             f"Transcript:\n{transcript_str}\n\n"
-            "Return ONLY a raw JSON object string with strictly these keys: "
-            "'score' (int 0-100), 'technical' (int 0-100), 'communication' (int 0-100), 'hireProbability' ('High'|'Medium'|'Low'), "
-            "'feedback' (string), 'improvements' (list of strings), 'studyPlan' (list of strings)."
-            "Do NOT include any markdown formatting like ```json. Just the raw object."
+            "Analyze strictly. Return ONLY a raw JSON object string with: "
+            "'score' (overall 0-100), 'technical' (0-100), 'communication' (0-100), "
+            "'hireProbability' ('High'|'Medium'|'Low'), 'feedback' (A blunt, realistic summary), "
+            "'improvements' (3-5 specific technical/soft skill gaps), 'studyPlan' (3-5 actionable steps)."
+            "Return ONLY raw JSON. No markdown."
         )}
     ]
 
